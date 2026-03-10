@@ -46,7 +46,7 @@ uniswap-platform/
 ├── backend/                      # REST API services, Database context, Escrow logic
 ├── .gitignore                    # Ignored files (node_modules, bin, obj, etc.)
 └── README.md                     # Project overview
-
+```
 ---
 
 ## 🛠️ Tech Stack & Tools
