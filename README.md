@@ -31,9 +31,21 @@ We operate using the Agile/Scrum framework to ensure continuous delivery and hig
 ---
 
 ## 📂 Project Structure
-> ⚠️ **Status: Currently in Planning Phase**
+> ✅ **Status: Initialized (Sprint 2)**
 
-*The exact folder architecture, database models, and service directory structure are currently being discussed and planned by the engineering team. This section will be updated once the architectural design (ADR) is finalized.*
+The repository is structured to separate documentation, frontend clients, and backend services, promoting modularity and a clean code architecture.
+
+```text
+uniswap-platform/
+├── .github/                      # CI/CD workflows and GitHub actions
+├── docs/                         # Project Documentation
+│   ├── agile_documents/          # Daily Stand-ups, Sprint Review records
+│   ├── architecture/             # ADRs, C4 Context & Container diagrams
+│   └── database/                 # ERD schemas, Escrow logic flowcharts
+├── frontend/                     # Web Client application (UI components, pages, services)
+├── backend/                      # REST API services, Database context, Escrow logic
+├── .gitignore                    # Ignored files (node_modules, bin, obj, etc.)
+└── README.md                     # Project overview
 
 ---
 
