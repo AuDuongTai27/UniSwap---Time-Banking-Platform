@@ -11,8 +11,8 @@ UniSwap breaks down the barriers of individual campuses, enabling students from 
 ### ✨ Key Features
 * **Inter-University Skill Exchange:** Connect with peers across different campuses.
 * **Time-Credit Escrow System:** Secure digital wallet that automatically holds and releases credits to ensure trust and prevent fraud.
-* **Cross-Campus Trust & Safety:** Strict verification using university-issued emails (`@eiu.edu.vn`) and Google OAuth.
-* **Role-Based Access Control:** Automated routing for Admin and Student Clients.
+* **Remote & In-Person Collaboration:** Built-in tools to support flexible meeting options.
+* **Cross-Campus Trust & Safety:** Strict verification using university-issued emails (`@eiu.edu.vn`) and academic transcripts to earn "Verified" badges.
 
 ---
 
@@ -45,101 +45,35 @@ We operate using the Agile/Scrum framework to ensure continuous delivery and hig
 * JWT (JSON Web Tokens) & bcrypt (Password Hashing)
 * Google Auth Library
 
+
 ---
 
 ## 📂 Project Structure
-The repository is structured to separate frontend clients and backend services, promoting modularity and a clean code architecture.
+> ✅ **Status: Initialized (Sprint 2)**
+
+The repository is structured to separate documentation, frontend clients, and backend services, promoting modularity and a clean code architecture.
 
 ```text
-UniSwap_Project/
-├── code/                         # ⚙️ BACKEND (Node.js / Express)
-│   ├── database/
-│   │   └── init_db.sql           # Database creation script
-│   ├── src/
-│   │   └── server.js             # Main Express server API
-│   ├── .env                      # Environment variables (DB config, JWT Secret)
-│   └── package.json
-│
-├── frontend/                     # 🎨 FRONTEND (React / Vite)
-│   ├── src/
-│   │   ├── App.jsx               # Main UI and Routing Logic
-│   │   └── style.css             # Global Styles (Glassmorphism UI)
-│   ├── .env                      # Environment variables (Google Client ID)
-│   └── package.json
-│
+uniswap-platform/
+├── .github/                      # CI/CD workflows and GitHub actions
+├── docs/                         # Project Documentation
+│   ├── agile_documents/          # Daily Stand-ups, Sprint Review records
+│   ├── architecture/             # ADRs, C4 Context & Container diagrams
+│   └── database/                 # ERD schemas, Escrow logic flowcharts
+├── frontend/                     # Web Client application (UI components, pages, services)
+├── backend/                      # REST API services, Database context, Escrow logic
+├── .gitignore                    # Ignored files (node_modules, bin, obj, etc.)
 └── README.md                     # Project overview
 ```
-
 ---
 
-## 🚀 Getting Started (How to run locally)
+## 🛠️ Tech Stack & Tools
+*(Note: To be finalized after the planning phase)*
 
-Follow these instructions to set up and run the UniSwap platform on your local machine.
-
-### Prerequisites
-* **Node.js** (v18 or higher recommended)
-* **MySQL** Server (e.g., XAMPP, MySQL Workbench)
-* **Git**
-
-### Step 1: Database Setup
-1. Open your MySQL client (e.g., phpMyAdmin, MySQL Workbench).
-2. Create a new SQL query tab.
-3. Copy the contents of `code/database/init_db.sql` and execute it. This will create the `uniswap_db` database and necessary tables.
-
-### Step 2: Backend Setup
-1. Open a terminal and navigate to the backend folder:
-   ```bash
-   cd code
-   ```
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Create a `.env` file in the `code/` root directory and add your configuration:
-   ```env
-   PORT=5000
-   DB_HOST=localhost
-   DB_USER=root
-   DB_PASSWORD=your_mysql_password_here
-   DB_NAME=uniswap_db
-   JWT_SECRET=your_super_secret_jwt_key
-   GOOGLE_CLIENT_ID=your_google_client_id.apps.googleusercontent.com
-   ```
-4. Start the backend server:
-   ```bash
-   node src/server.js
-   ```
-   *(Expected output: "Backend đang chạy tại http://localhost:5000")*
-
-### Step 3: Frontend Setup
-1. Open a **new** terminal window and navigate to the frontend folder:
-   ```bash
-   cd frontend
-   ```
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Create a `.env` file in the `frontend/` root directory:
-   ```env
-   VITE_GOOGLE_CLIENT_ID=your_google_client_id.apps.googleusercontent.com
-   VITE_API_URL=http://localhost:5000
-   ```
-4. Start the React development server:
-   ```bash
-   npm run dev
-   ```
-5. Open your browser and visit `http://localhost:5173`.
-
----
-
-## 🧪 Testing Accounts
-To test the Role-Based Access Control (RBAC):
-* **Admin Access:** Register/Login using `tai.au.cit23@eiu.edu.vn`.
-* **Client Access:** Register/Login using any other `@eiu.edu.vn` email.
-* *Note: Emails outside the `@eiu.edu.vn` domain will be rejected by the system.*
+⚠️ **Status: Currently in Planning Phase**
 
 ---
 
 ## 🔗 Important Links
 * [**Jira Board**](https://auduongtai27.atlassian.net/jira/software/projects/UD/boards/34) - Active Sprint and Product Backlog.
+
