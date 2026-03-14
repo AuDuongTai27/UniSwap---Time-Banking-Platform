@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { BrowserRouter as Router, Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import { jwtDecode } from 'jwt-decode';
-import './style.css'; // MỚI: Nhúng file CSS vào đây!
+import './style/style.css'; // MỚI: Nhúng file CSS vào đây!
 import { GoogleOAuthProvider, useGoogleLogin } from '@react-oauth/google';
 // const GOOGLE_CLIENT_ID = 'ĐIỀN_LẠI_CÁI_CLIENT_ID_Ở_TRÊN_VÀO_ĐÂY';
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
@@ -151,47 +151,48 @@ const AuthPage = () => {
   );
 };
 
-// --- COMPONENT: TRANG INDEX ---
-const IndexPage = () => {
-  const navigate = useNavigate();
+// 1. IMPORT CÁC TRANG TỪ THƯ MỤC FIGMA VỪA COPY VÀO
+import { Root } from './app/pages/root';
+import { Home } from './app/pages/home';
+import { ServiceDetail } from './app/pages/service-detail';
+import { Profile } from './app/pages/profile';
+import { UserProfile } from './app/pages/user-profile';
+import { MyActivity } from './app/pages/my-activity';
+import { PostService } from './app/pages/post-service';
+import { HowItWorks } from './app/pages/how-it-works';
+import { NotFound } from './app/pages/not-found';
+
+// 2. COMPONENT BẢO VỆ: KHÔNG CÓ TOKEN THÌ ĐÁ RA NGOÀI
+const ProtectedRoute = ({ children }) => {
   const token = localStorage.getItem('token');
-
   if (!token) return <Navigate to="/login" />;
-
-  let user;
-  try {
-    user = jwtDecode(token);
-  } catch {
-    localStorage.removeItem('token');
-    return <Navigate to="/login" />;
-  }
-
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    navigate('/login');
-  };
-
-  return (
-    <div style={{ padding: '50px', textAlign: 'center', fontFamily: '"Segoe UI", sans-serif' }}>
-      <h1>{user.role === 'ADMIN' ? '🛠️ ADMIN DASHBOARD' : '🎓 STUDENT MARKETPLACE'}</h1>
-      <p>Xin chào, <strong>{user.email}</strong>!</p>
-      <p>Bạn đang đăng nhập với quyền: <strong>{user.role}</strong></p>
-      <button onClick={handleLogout} style={{ padding: '10px 20px', marginTop: '20px', background: '#e74c3c', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>
-        Đăng Xuất
-      </button>
-    </div>
-  );
+  
+  // Bác có thể decode token ở đây để lấy Role truyền xuống UI nếu cần
+  return children;
 };
 
-// --- ROUTER CHÍNH ---
+// 3. RÁP ROUTER MỚI
 export default function App() {
+  const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+
   return (
-    // Bọc toàn bộ App bằng Provider của Google
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
       <Router>
         <Routes>
+          {/* LUỒNG NGOÀI: Trang Đăng Nhập */}
           <Route path="/login" element={<AuthPage />} />
-          <Route path="/" element={<IndexPage />} />
+
+          {/* LUỒNG TRONG: Được bảo vệ bởi ProtectedRoute */}
+          <Route path="/" element={<ProtectedRoute><Root /></ProtectedRoute>}>
+            <Route index element={<Home />} />
+            <Route path="service/:id" element={<ServiceDetail />} />
+            <Route path="profile" element={<Profile />} />
+            <Route path="user/:id" element={<UserProfile />} />
+            <Route path="my-activity" element={<MyActivity />} />
+            <Route path="post-service" element={<PostService />} />
+            <Route path="how-it-works" element={<HowItWorks />} />
+            <Route path="*" element={<NotFound />} />
+          </Route>
         </Routes>
       </Router>
     </GoogleOAuthProvider>
