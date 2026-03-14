@@ -1,20 +1,27 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { BrowserRouter as Router, Routes, Route, useNavigate, Navigate } from 'react-router-dom';
-import { jwtDecode } from 'jwt-decode';
-import './style/style.css'; // MỚI: Nhúng file CSS vào đây!
 import { GoogleOAuthProvider, useGoogleLogin } from '@react-oauth/google';
-// const GOOGLE_CLIENT_ID = 'ĐIỀN_LẠI_CÁI_CLIENT_ID_Ở_TRÊN_VÀO_ĐÂY';
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-// --- COMPONENT: TRANG ĐĂNG NHẬP / ĐĂNG KÝ (SPLIT-SCREEN + FROST EFFECT) ---
+import './style/style.css';
+
+import { Root } from './app/pages/root';
+import { Home } from './app/pages/home';
+import { ServiceDetail } from './app/pages/service-detail';
+import { Profile } from './app/pages/profile';
+import { UserProfile } from './app/pages/user-profile';
+import { MyActivity } from './app/pages/my-activity';
+import { PostService } from './app/pages/post-service';
+import { HowItWorks } from './app/pages/how-it-works';
+import { NotFound } from './app/pages/not-found';
+
 const AuthPage = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
+  const [name, setName] = useState('');
   const navigate = useNavigate();
 
-  // 1. LUỒNG GOOGLE: Phải khai báo ở ngoài cùng của Component
   const loginWithGoogle = useGoogleLogin({
     onSuccess: async (tokenResponse) => {
       try {
@@ -30,13 +37,14 @@ const AuthPage = () => {
     onError: () => setMessage('Đăng nhập Google bị hủy.'),
   });
 
-  // 2. LUỒNG EMAIL/PASS BÌNH THƯỜNG: Đã được khôi phục lại logic axios
+  // ✅ SỬA: thêm name vào body khi đăng ký
   const handleSubmit = async (e) => {
     e.preventDefault();
     const endpoint = isLogin ? 'http://localhost:5000/api/login' : 'http://localhost:5000/api/register';
     
     try {
-      const response = await axios.post(endpoint, { email, password });
+      const body = isLogin ? { email, password } : { email, password, name };
+      const response = await axios.post(endpoint, body);
       
       if (isLogin) {
         localStorage.setItem('token', response.data.token);
@@ -49,19 +57,20 @@ const AuthPage = () => {
       setMessage(error.response?.data?.error || 'Có lỗi xảy ra!');
     }
   };  
+
   return (
-    <div className="auth-container">
-      {/* CỘT TRÁI: THÔNG TIN DỰ ÁN & TEAM */}
-      <div className="left-column">
-        <div style={{ maxWidth: '400px', margin: '0 auto' }}>
-          <h1 style={{ fontSize: '3rem', fontWeight: 'bold', marginBottom: '10px' }}>UniSwap.</h1>
-          <p style={{ fontSize: '1.2rem', opacity: 0.9, marginBottom: '40px', lineHeight: '1.6' }}>
+    <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-800 p-4 font-sans">
+      <div className="w-full max-w-5xl grid md:grid-cols-2 bg-white/10 backdrop-blur-lg border border-white/20 rounded-3xl shadow-2xl overflow-hidden">
+        
+        <div className="hidden md:flex p-12 flex-col justify-center text-white">
+          <h1 className="text-5xl font-extrabold mb-4 drop-shadow-lg tracking-tight">UniSwap.</h1>
+          <p className="text-lg font-light opacity-90 mb-8 leading-relaxed">
             Nền tảng Trao đổi Kỹ năng & Thời gian (Time Banking) dành riêng cho sinh viên. Đảm bảo giao dịch an toàn với cơ chế Ký quỹ (Escrow).
           </p>
           
-          <div style={{ background: 'rgba(255,255,255,0.1)', padding: '20px', borderRadius: '12px', backdropFilter: 'blur(10px)' }}>
-            <h3 style={{ borderBottom: '1px solid rgba(255,255,255,0.3)', paddingBottom: '10px', marginBottom: '15px' }}>Đội ngũ phát triển</h3>
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0, lineHeight: '2' }}>
+          <div className="bg-white/10 p-6 rounded-2xl backdrop-blur-md border border-white/10">
+            <h3 className="text-xl font-semibold border-b border-white/30 pb-3 mb-4">Đội ngũ phát triển</h3>
+            <ul className="space-y-2 opacity-90">
               <li>👨‍💻 <strong>Âu Dương Tài</strong> - Tech Lead / Backend</li>
               <li>👨‍💼 <strong>Huỳnh Khánh Duy</strong> - Business Analyst</li>
               <li>👩‍💻 <strong>Nguyễn Thị Diễm My</strong> - Product Owner</li>
@@ -70,65 +79,84 @@ const AuthPage = () => {
               <li>👩‍💻 <strong>Trần Mạnh Tuấn</strong> - Scrum Master</li>
             </ul>
             
-            <div style={{ marginTop: '20px', display: 'flex', gap: '15px' }}>
-              <a href="#" style={{ color: 'white', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                <svg height="24" width="24" fill="currentColor" viewBox="0 0 16 16">
-                  <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path>
-                </svg>
-                GitHub Repo
-              </a>
-            </div>
+            <a href="#" className="inline-flex items-center gap-2 mt-6 bg-white/20 hover:bg-white/30 transition px-4 py-2 rounded-lg font-medium">
+              <svg height="20" width="20" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path>
+              </svg>
+              GitHub Repo
+            </a>
           </div>
         </div>
-      </div>
 
-      {/* CỘT PHẢI: FORM ĐĂNG NHẬP / ĐĂNG KÝ */}
-      <div className="right-column">
-        <div style={{ width: '100%', maxWidth: '400px' }}>
-          <h2 style={{ fontSize: '2rem', fontWeight: 'bold', color: '#333', marginBottom: '10px' }}>
+        <div className="bg-white p-10 md:p-14 flex flex-col justify-center">
+          <h2 className="text-3xl font-bold text-gray-800 mb-2">
             {isLogin ? 'Chào mừng trở lại! 👋' : 'Tạo tài khoản mới 🚀'}
           </h2>
-          <p style={{ color: '#666', marginBottom: '30px' }}>
+          <p className="text-gray-500 mb-8">
             {isLogin ? 'Vui lòng đăng nhập để tiếp tục.' : 'Đăng ký bằng email sinh viên EIU.'}
           </p>
 
-          <form onSubmit={handleSubmit} className="auth-form">
-            <div className="input-group">
-              <label>Email</label>
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
               <input 
-                type="email" placeholder="example@eiu.edu.vn" required
-                value={email} onChange={(e) => setEmail(e.target.value)}
-                className="auth-input"
+                type="email" 
+                placeholder="example@eiu.edu.vn" 
+                required
+                value={email} 
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition outline-none"
               />
             </div>
+
+            {/* ✅ THÊM: Field Họ và tên, chỉ hiện khi đăng ký */}
+            {!isLogin && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Họ và tên</label>
+                <input 
+                  type="text" 
+                  placeholder="Nguyễn Văn A" 
+                  required
+                  value={name} 
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition outline-none"
+                />
+              </div>
+            )}
             
-            <div className="input-group">
-              <label>Mật khẩu</label>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Mật khẩu</label>
               <input 
-                type="password" placeholder="••••••••" required
-                value={password} onChange={(e) => setPassword(e.target.value)}
-                className="auth-input"
+                type="password" 
+                placeholder="••••••••" 
+                required
+                value={password} 
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition outline-none"
               />
             </div>
 
-            {message && <p style={{ color: message.includes('thành công') ? 'green' : '#e74c3c', margin: 0, fontSize: '14px', fontWeight: '500' }}>{message}</p>}
+            {message && (
+              <p className={`text-sm font-medium ${message.includes('thành công') ? 'text-green-600' : 'text-red-500'}`}>
+                {message}
+              </p>
+            )}
 
-            <button type="submit" className="submit-button">
+            <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition transform hover:scale-[1.02] shadow-md">
               {isLogin ? 'Đăng Nhập' : 'Đăng Ký'}
             </button>
           </form>
 
-          <div className="divider">
-            <hr />
-            <span>HOẶC</span>
-            <hr />
+          <div className="flex items-center my-8">
+            <div className="flex-grow border-t border-gray-200"></div>
+            <span className="flex-shrink-0 mx-4 text-gray-400 text-sm font-medium">HOẶC</span>
+            <div className="flex-grow border-t border-gray-200"></div>
           </div>
 
-          {/* Nút Đăng nhập Google */}
           <button 
             type="button" 
             onClick={() => loginWithGoogle()} 
-            className="google-button"
+            className="w-full flex items-center justify-center gap-3 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium py-3 rounded-xl transition shadow-sm"
           >
             <svg width="20" height="20" viewBox="0 0 48 48">
               <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path>
@@ -139,11 +167,11 @@ const AuthPage = () => {
             Tiếp tục với Google
           </button>
 
-          <p style={{ textAlign: 'center', marginTop: '25px', color: '#666' }}>
+          <p className="text-center mt-8 text-gray-600">
             {isLogin ? 'Chưa có tài khoản? ' : 'Đã có tài khoản? '}
-            <span onClick={() => setIsLogin(!isLogin)} className="auth-link">
+            <button onClick={() => setIsLogin(!isLogin)} className="text-blue-600 font-semibold hover:underline cursor-pointer">
               {isLogin ? 'Đăng ký ngay' : 'Đăng nhập'}
-            </span>
+            </button>
           </p>
         </div>
       </div>
@@ -151,27 +179,12 @@ const AuthPage = () => {
   );
 };
 
-// 1. IMPORT CÁC TRANG TỪ THƯ MỤC FIGMA VỪA COPY VÀO
-import { Root } from './app/pages/root';
-import { Home } from './app/pages/home';
-import { ServiceDetail } from './app/pages/service-detail';
-import { Profile } from './app/pages/profile';
-import { UserProfile } from './app/pages/user-profile';
-import { MyActivity } from './app/pages/my-activity';
-import { PostService } from './app/pages/post-service';
-import { HowItWorks } from './app/pages/how-it-works';
-import { NotFound } from './app/pages/not-found';
-
-// 2. COMPONENT BẢO VỆ: KHÔNG CÓ TOKEN THÌ ĐÁ RA NGOÀI
 const ProtectedRoute = ({ children }) => {
   const token = localStorage.getItem('token');
   if (!token) return <Navigate to="/login" />;
-  
-  // Bác có thể decode token ở đây để lấy Role truyền xuống UI nếu cần
   return children;
 };
 
-// 3. RÁP ROUTER MỚI
 export default function App() {
   const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
@@ -179,10 +192,7 @@ export default function App() {
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
       <Router>
         <Routes>
-          {/* LUỒNG NGOÀI: Trang Đăng Nhập */}
           <Route path="/login" element={<AuthPage />} />
-
-          {/* LUỒNG TRONG: Được bảo vệ bởi ProtectedRoute */}
           <Route path="/" element={<ProtectedRoute><Root /></ProtectedRoute>}>
             <Route index element={<Home />} />
             <Route path="service/:id" element={<ServiceDetail />} />

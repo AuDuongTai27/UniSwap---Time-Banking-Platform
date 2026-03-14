@@ -1,13 +1,25 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search } from 'lucide-react';
 import { Input } from '@/app/components/ui/input';
 import { Button } from '@/app/components/ui/button';
 import { ServiceCard } from '@/app/components/service-card';
-import { services, categories } from '@/app/data/mock-data';
+import { categories } from '@/app/data/mock-data'; // chỉ giữ categories
 
 export function Home() {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
+  const [services, setServices] = useState([]); // ✅ state thay vì import cứng
+
+  // ✅ Fetch services từ backend khi load trang
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    fetch('http://localhost:5000/api/services', {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(res => res.json())
+      .then(data => setServices(data))
+      .catch(err => console.error('Lỗi fetch services:', err));
+  }, []);
 
   const filteredServices = services.filter(service => {
     const matchesCategory = selectedCategory === 'All' || service.category === selectedCategory;

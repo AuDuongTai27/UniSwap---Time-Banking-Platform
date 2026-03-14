@@ -8,6 +8,7 @@ import { Label } from '@/app/components/ui/label';
 import { Textarea } from '@/app/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
 import { categories } from '@/app/data/mock-data';
+import { apiFetch } from '@/app/data/api';
 import { toast } from 'sonner';
 
 export function PostService() {
@@ -18,20 +19,32 @@ export function PostService() {
   const [duration, setDuration] = useState('');
   const [creditsPerHour, setCreditsPerHour] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!title || !description || !category || !duration || !creditsPerHour) {
       toast.error('Please fill in all required fields');
       return;
     }
-
-    // Mock service creation
-    toast.success('Service posted successfully! Students can now find and book your service.');
-    navigate('/profile');
+    try {
+      await apiFetch('/api/services', {
+        method: 'POST',
+        body: JSON.stringify({
+          title,
+          description,
+          category,
+          duration: parseFloat(duration),
+          credits_per_hour: parseFloat(creditsPerHour),
+          total_credits: parseFloat(duration) * parseFloat(creditsPerHour),
+        }),
+      });
+      toast.success('Service posted successfully!');
+      navigate('/profile');
+    } catch {
+      toast.error('Failed to post service');
+    }
   };
 
-  const totalCredits = duration && creditsPerHour 
+  const totalCredits = duration && creditsPerHour
     ? (parseFloat(duration) * parseFloat(creditsPerHour)).toFixed(1)
     : '0';
 

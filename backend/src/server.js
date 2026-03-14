@@ -26,31 +26,32 @@ const pool = mysql.createPool({
 
 // API 1: ĐĂNG KÝ (REGISTER)
 app.post('/api/register', async (req, res) => {
-    const { email, password } = req.body;
+    const { email, password, name } = req.body; // ✅ thêm name
 
-    // RULE 1: Chỉ cho phép mail @eiu.edu.vn
+    if (!email || !password || !name) {
+        return res.status(400).json({ error: 'Vui lòng điền đầy đủ thông tin' });
+    }
+
     if (!email.endsWith('@eiu.edu.vn')) {
         return res.status(400).json({ error: 'Chỉ chấp nhận email sinh viên @eiu.edu.vn' });
     }
 
-    // RULE 2: Gán quyền Admin cho Âu Dương Tài
     const role = (email === 'tai.au.cit23@eiu.edu.vn') ? 'ADMIN' : 'CLIENT';
 
     try {
-        // Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
         
-        // Lưu vào DB
         const [result] = await pool.query(
-            'INSERT INTO users (email, password_hash, role) VALUES (?, ?, ?)',
-            [email, hashedPassword, role]
+            'INSERT INTO users (email, password_hash, role, name) VALUES (?, ?, ?, ?)', // ✅ thêm name
+            [email, hashedPassword, role, name] // ✅ thêm name
         );
         res.status(201).json({ message: 'Đăng ký thành công!', role: role });
     } catch (error) {
+        console.error("LỖI ĐĂNG KÝ:", error.message);
         if (error.code === 'ER_DUP_ENTRY') {
             return res.status(400).json({ error: 'Email này đã được đăng ký!' });
         }
-        res.status(500).json({ error: 'Lỗi server' });
+        res.status(500).json({ error: error.message });
     }
 });
 
@@ -75,8 +76,8 @@ app.post('/api/login', async (req, res) => {
 
         // Tạo JWT Token chứa thông tin user (để frontend dùng điều hướng)
         const token = jwt.sign(
-            { id: user.id, email: user.email, role: user.role }, 
-            JWT_SECRET, 
+            { id: user.id, email: user.email, role: user.role },
+            JWT_SECRET,
             { expiresIn: '1h' }
         );
 
@@ -95,7 +96,7 @@ app.post('/api/google-auth', async (req, res) => {
             headers: { Authorization: `Bearer ${access_token}` }
         });
         const payload = await googleRes.json();
-        
+
         // Trích xuất email từ Google trả về
         const email = payload.email;
 
@@ -129,8 +130,8 @@ app.post('/api/google-auth', async (req, res) => {
 
         // 5. Cấp thẻ vào cửa (JWT) của hệ thống UniSwap
         const token = jwt.sign(
-            { id: userId, email: email, role: role }, 
-            JWT_SECRET, 
+            { id: userId, email: email, role: role },
+            JWT_SECRET,
             { expiresIn: '1h' }
         );
 
@@ -140,4 +141,225 @@ app.post('/api/google-auth', async (req, res) => {
         res.status(500).json({ error: 'Lỗi server khi xác thực Google!' });
     }
 });
+// API 4: gui du lieu cho front end (fletch)
+app.get('/api/services', async (req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT s.*, u.name as provider_name, u.avatar as provider_avatar, u.rating as provider_rating
+      FROM services s
+      JOIN users u ON s.user_id = u.id
+    `);
+    res.json(rows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+//API 5
+const verifyToken = (req, res, next) => {
+  const token = req.headers['authorization']?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Không có token' });
+  jwt.verify(token, JWT_SECRET, (err, decoded) => {
+    if (err) return res.status(403).json({ error: 'Token không hợp lệ' });
+    req.user = decoded;
+    next();
+  });
+};
+
+//API 6 Lấy thông tin user hiện tại
+app.get('/api/me', verifyToken, async (req, res) => {
+  const [rows] = await pool.query('SELECT * FROM users WHERE id = ?', [req.user.id]);
+  res.json(rows[0]);
+});
+
+//API 7 Lấy tất cả services (có join provider info)
+app.get('/api/services', verifyToken, async (req, res) => {
+  const [rows] = await pool.query(`
+    SELECT s.*, 
+      u.name as provider_name, u.avatar as provider_avatar,
+      u.rating as provider_rating, u.total_reviews as provider_total_reviews,
+      u.status as provider_status, u.is_verified as provider_verified,
+      u.credits_earned as provider_credits_earned
+    FROM services s JOIN users u ON s.user_id = u.id
+  `);
+  res.json(rows);
+});
+
+//API 8 Lấy 1 service theo id
+app.get('/api/services/:id', verifyToken, async (req, res) => {
+  const [rows] = await pool.query(`
+    SELECT s.*, 
+      u.name as provider_name, u.avatar as provider_avatar,
+      u.rating as provider_rating, u.total_reviews as provider_total_reviews,
+      u.status as provider_status, u.is_verified as provider_verified,
+      u.credits_earned as provider_credits_earned
+    FROM services s JOIN users u ON s.user_id = u.id
+    WHERE s.id = ?
+  `, [req.params.id]);
+  if (rows.length === 0) return res.status(404).json({ error: 'Service not found' });
+  res.json(rows[0]);
+});
+
+//API 9 Reviews của 1 service
+app.get('/api/services/:id/reviews', verifyToken, async (req, res) => {
+  const [rows] = await pool.query(`
+    SELECT r.*, u.name as reviewer_name, u.avatar as reviewer_avatar
+    FROM reviews r
+    JOIN bookings b ON r.booking_id = b.id
+    JOIN users u ON r.reviewer_id = u.id
+    WHERE b.service_id = ?
+  `, [req.params.id]);
+  res.json(rows);
+});
+
+//API 10 Services của current user
+app.get('/api/my-services', verifyToken, async (req, res) => {
+  const [rows] = await pool.query('SELECT * FROM services WHERE user_id = ?', [req.user.id]);
+  res.json(rows);
+});
+
+//API 11 Reviews nhận được của current user
+app.get('/api/my-reviews', verifyToken, async (req, res) => {
+  const [rows] = await pool.query(`
+    SELECT r.*, u.name as reviewer_name, u.avatar as reviewer_avatar
+    FROM reviews r JOIN users u ON r.reviewer_id = u.id
+    WHERE r.reviewed_user_id = ?
+  `, [req.user.id]);
+  res.json(rows);
+});
+
+//API 12 Post service mới
+app.post('/api/services', verifyToken, async (req, res) => {
+  const { title, description, category, duration, credits_per_hour, total_credits } = req.body;
+  const [result] = await pool.query(
+    'INSERT INTO services (user_id, title, description, category, duration, credits_per_hour, total_credits) VALUES (?,?,?,?,?,?,?)',
+    [req.user.id, title, description, category, duration, credits_per_hour, total_credits]
+  );
+  res.status(201).json({ id: result.insertId });
+});
+
+//API 13 Bookings của current user (với role requester)
+app.get('/api/bookings/my-requests', verifyToken, async (req, res) => {
+  const [rows] = await pool.query(`
+    SELECT b.*, s.title as service_title, s.image as service_image, s.category as service_category,
+      u.name as other_user_name, u.avatar as other_user_avatar
+    FROM bookings b
+    JOIN services s ON b.service_id = s.id
+    JOIN users u ON b.provider_id = u.id
+    WHERE b.requester_id = ?
+    ORDER BY b.created_at DESC
+  `, [req.user.id]);
+  res.json(rows);
+});
+
+//API 14 Bookings của current user (với role provider)
+app.get('/api/bookings/my-offers', verifyToken, async (req, res) => {
+  const [rows] = await pool.query(`
+    SELECT b.*, s.title as service_title, s.image as service_image, s.category as service_category,
+      u.name as other_user_name, u.avatar as other_user_avatar
+    FROM bookings b
+    JOIN services s ON b.service_id = s.id
+    JOIN users u ON b.requester_id = u.id
+    WHERE b.provider_id = ?
+    ORDER BY b.created_at DESC
+  `, [req.user.id]);
+  res.json(rows);
+});
+
+//API 15 Tạo booking mới
+app.post('/api/bookings', verifyToken, async (req, res) => {
+  const { service_id, provider_id, scheduled_date, message, credits_amount } = req.body;
+  const [result] = await pool.query(
+    'INSERT INTO bookings (service_id, provider_id, requester_id, scheduled_date, message, credits_amount) VALUES (?,?,?,?,?,?)',
+    [service_id, provider_id, req.user.id, scheduled_date, message, credits_amount]
+  );
+  res.status(201).json({ id: result.insertId });
+});
+
+//API 16 Cập nhật trạng thái booking
+app.patch('/api/bookings/:id/:action', verifyToken, async (req, res) => {
+  const statusMap = { confirm: 'confirmed', cancel: 'cancelled', complete: 'completed' };
+  const status = statusMap[req.params.action];
+  if (!status) return res.status(400).json({ error: 'Invalid action' });
+  await pool.query('UPDATE bookings SET status = ? WHERE id = ?', [status, req.params.id]);
+  res.json({ success: true });
+});
+
+//API 17 Lấy thông tin 1 user bất kỳ
+app.get('/api/users/:id', verifyToken, async (req, res) => {
+  const [rows] = await pool.query('SELECT * FROM users WHERE id = ?', [req.params.id]);
+  if (rows.length === 0) return res.status(404).json({ error: 'User not found' });
+  res.json(rows[0]);
+});
+
+//API 18 Services của 1 user bất kỳ
+app.get('/api/users/:id/services', verifyToken, async (req, res) => {
+  const [rows] = await pool.query(`
+    SELECT s.*, u.name as provider_name, u.avatar as provider_avatar,
+      u.rating as provider_rating, u.total_reviews as provider_total_reviews
+    FROM services s JOIN users u ON s.user_id = u.id
+    WHERE s.user_id = ?
+  `, [req.params.id]);
+  res.json(rows);
+});
+
+//API 19 Reviews của 1 user bất kỳ
+app.get('/api/users/:id/reviews', verifyToken, async (req, res) => {
+  const [rows] = await pool.query(`
+    SELECT r.*, u.name as reviewer_name, u.avatar as reviewer_avatar
+    FROM reviews r JOIN users u ON r.reviewer_id = u.id
+    WHERE r.reviewed_user_id = ?
+  `, [req.params.id]);
+  res.json(rows);
+});
+//API 20  Cập nhật thông tin profile
+app.patch('/api/me', verifyToken, async (req, res) => {
+  const { name, age, status, bio, avatar, skills_offered, skills_needed } = req.body;
+  try {
+    await pool.query(
+      `UPDATE users SET name=?, age=?, status=?, bio=?, avatar=?, skills_offered=?, skills_needed=? WHERE id=?`,
+      [name, age, status, bio, avatar,
+        JSON.stringify(skills_offered),
+        JSON.stringify(skills_needed),
+        req.user.id]
+    );
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+//API 21 Đổi mật khẩu
+app.patch('/api/me/password', verifyToken, async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  try {
+    const [rows] = await pool.query('SELECT * FROM users WHERE id = ?', [req.user.id]);
+    const user = rows[0];
+
+    // Google auth user không có password
+    if (user.password_hash === 'GOOGLE_AUTH_NO_PASSWORD') {
+      return res.status(400).json({ error: 'Tài khoản Google không thể đổi mật khẩu' });
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, user.password_hash);
+    if (!isMatch) return res.status(400).json({ error: 'Mật khẩu hiện tại không đúng' });
+
+    const hashed = await bcrypt.hash(newPassword, 10);
+    await pool.query('UPDATE users SET password_hash=? WHERE id=?', [hashed, req.user.id]);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+//API 22 Upload avatar (base64)
+app.patch('/api/me/avatar', verifyToken, async (req, res) => {
+  const { avatar } = req.body;
+  try {
+    await pool.query('UPDATE users SET avatar=? WHERE id=?', [avatar, req.user.id]);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.listen(5000, () => console.log('Backend đang chạy tại http://localhost:5000'));
