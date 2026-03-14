@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Link, useLocation } from 'react-router';
-import { Clock, User, Plus } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router'; // ✅ thêm useNavigate
+import { Clock, User, Plus, LogOut } from 'lucide-react'; // ✅ thêm LogOut
 import { Button } from '@/app/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/app/components/ui/avatar';
 import { apiFetch } from '@/app/data/api';
@@ -8,6 +8,7 @@ import type { User as UserType } from '@/app/data/mock-data';
 
 export function Header() {
   const location = useLocation();
+  const navigate = useNavigate(); // ✅ thêm
   const [currentUser, setCurrentUser] = useState<UserType | null>(null);
 
   useEffect(() => {
@@ -19,6 +20,12 @@ export function Header() {
     : '0';
 
   const isActive = (path: string) => location.pathname === path;
+
+  // ✅ Hàm đăng xuất
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    navigate('/login');
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-white">
@@ -52,8 +59,7 @@ export function Header() {
             </div>
             <Link to="/post-service">
               <Button size="sm" className="hidden md:flex gap-2">
-                <Plus className="h-4 w-4" />
-                Post Service
+                <Plus className="h-4 w-4" />Post Service
               </Button>
             </Link>
             <Link to="/profile">
@@ -62,6 +68,11 @@ export function Header() {
                 <AvatarFallback><User className="h-5 w-5" /></AvatarFallback>
               </Avatar>
             </Link>
+            {/* ✅ Nút đăng xuất */}
+            <Button variant="ghost" size="sm" onClick={handleLogout} className="gap-2 text-gray-600 hover:text-red-600">
+              <LogOut className="h-4 w-4" />
+              <span className="hidden md:inline">Đăng xuất</span>
+            </Button>
           </div>
         </div>
       </div>

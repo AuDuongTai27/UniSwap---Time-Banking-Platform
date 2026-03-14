@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Calendar, Clock, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
+import { Calendar, Clock, CheckCircle, XCircle, AlertCircle, Star } from 'lucide-react'; // ✅ thêm Star
+import { Card, CardContent } from '@/app/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/ui/tabs';
 import { Avatar, AvatarImage, AvatarFallback } from '@/app/components/ui/avatar';
 import { Badge } from '@/app/components/ui/badge';
 import { Button } from '@/app/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/app/components/ui/dialog';
+import { Textarea } from '@/app/components/ui/textarea';
+import { Label } from '@/app/components/ui/label';
 import { apiFetch } from '@/app/data/api';
 import { toast } from 'sonner';
 
@@ -13,10 +16,62 @@ export function MyActivity() {
   const [myRequests, setMyRequests] = useState<any[]>([]);
   const [myOffers, setMyOffers] = useState<any[]>([]);
 
-  useEffect(() => {
+  // ✅ Review state
+  const [showReviewDialog, setShowReviewDialog] = useState(false);
+  const [reviewBooking, setReviewBooking] = useState<any>(null);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState('');
+  const [hoveredStar, setHoveredStar] = useState(0);
+
+  const fetchData = () => {
     apiFetch('/api/bookings/my-requests').then(data => setMyRequests(Array.isArray(data) ? data : []));
     apiFetch('/api/bookings/my-offers').then(data => setMyOffers(Array.isArray(data) ? data : []));
-  }, []);
+  };
+
+  useEffect(() => { fetchData(); }, []);
+
+  const handleAction = async (bookingId: number, action: string, booking?: any) => {
+    await apiFetch(`/api/bookings/${bookingId}/${action}`, { method: 'PATCH' });
+    const messages: Record<string, string> = {
+      confirm: 'Đã xác nhận booking!',
+      cancel: 'Đã hủy booking!',
+      complete: 'Đã hoàn thành! Credits đã được chuyển.',
+    };
+    toast.success(messages[action] || 'Thành công!');
+    fetchData();
+
+    // ✅ Sau khi complete → tự mở dialog đánh giá cho requester
+    if (action === 'complete' && booking) {
+      setTimeout(() => openReviewDialog(booking), 500);
+    }
+  };
+
+  const openReviewDialog = (booking: any) => {
+    setReviewBooking(booking);
+    setReviewRating(5);
+    setReviewComment('');
+    setShowReviewDialog(true);
+  };
+
+  const handleSubmitReview = async () => {
+    if (!reviewBooking) return;
+    try {
+      await apiFetch('/api/reviews', {
+        method: 'POST',
+        body: JSON.stringify({
+          booking_id: reviewBooking.id,
+          reviewed_user_id: reviewBooking.provider_id, // ✅ requester đánh giá provider
+          rating: reviewRating,
+          comment: reviewComment,
+        }),
+      });
+      toast.success('Đánh giá đã được gửi!');
+      setShowReviewDialog(false);
+      fetchData();
+    } catch {
+      toast.error('Gửi đánh giá thất bại');
+    }
+  };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -36,13 +91,6 @@ export function MyActivity() {
     };
     const variant = variants[status] || variants.pending;
     return <Badge variant="secondary" className={variant.className}>{variant.label}</Badge>;
-  };
-
-  const handleAction = async (bookingId: number, action: 'confirm' | 'cancel' | 'complete') => {
-    await apiFetch(`/api/bookings/${bookingId}/${action}`, { method: 'PATCH' });
-    toast.success(`Booking ${action}ed!`);
-    apiFetch('/api/bookings/my-requests').then(data => setMyRequests(Array.isArray(data) ? data : []));
-    apiFetch('/api/bookings/my-offers').then(data => setMyOffers(Array.isArray(data) ? data : []));
   };
 
   const renderBookingCard = (booking: any, isProvider: boolean) => (
@@ -97,11 +145,30 @@ export function MyActivity() {
                   <Button size="sm" variant="outline" onClick={() => handleAction(booking.id, 'cancel')}>Decline</Button>
                 </>
               )}
-              {booking.status === 'confirmed' && (
-                <Button size="sm" variant="outline" onClick={() => handleAction(booking.id, 'cancel')}>Cancel Booking</Button>
+              {isProvider && booking.status === 'confirmed' && (
+                <>
+                  <Button size="sm" className="bg-green-600 hover:bg-green-700"
+                    onClick={() => handleAction(booking.id, 'complete', booking)}> {/* ✅ truyền booking */}
+                    ✅ Mark as Complete
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => handleAction(booking.id, 'cancel')}>
+                    Cancel
+                  </Button>
+                </>
               )}
-              {booking.status === 'completed' && !isProvider && (
-                <Button size="sm" onClick={() => toast.success('Review submitted!')}>Leave Review</Button>
+              {!isProvider && booking.status === 'confirmed' && (
+                <Button size="sm" variant="outline" onClick={() => handleAction(booking.id, 'cancel')}>
+                  Cancel Booking
+                </Button>
+              )}
+              {/* ✅ Nút Leave Review cho requester sau khi complete */}
+              {!isProvider && booking.status === 'completed' && !booking.has_reviewed && (
+                <Button size="sm" onClick={() => openReviewDialog(booking)}>
+                  ⭐ Leave Review
+                </Button>
+              )}
+              {!isProvider && booking.status === 'completed' && booking.has_reviewed && (
+                <span className="text-sm text-gray-500 italic">✅ Đã đánh giá</span>
               )}
             </div>
           </div>
@@ -150,6 +217,54 @@ export function MyActivity() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* ✅ REVIEW DIALOG */}
+      <Dialog open={showReviewDialog} onOpenChange={setShowReviewDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Đánh giá dịch vụ</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="text-center">
+              <p className="text-gray-600 mb-3">
+                Đánh giá <strong>{reviewBooking?.other_user_name}</strong>
+              </p>
+              {/* Star Rating */}
+              <div className="flex justify-center gap-1 mb-2">
+                {[1, 2, 3, 4, 5].map(star => (
+                  <button
+                    key={star}
+                    onMouseEnter={() => setHoveredStar(star)}
+                    onMouseLeave={() => setHoveredStar(0)}
+                    onClick={() => setReviewRating(star)}
+                  >
+                    <Star className={`h-8 w-8 transition-colors ${star <= (hoveredStar || reviewRating)
+                      ? 'fill-yellow-400 text-yellow-400'
+                      : 'text-gray-300'
+                      }`} />
+                  </button>
+                ))}
+              </div>
+              <p className="text-sm text-gray-500">
+                {['', 'Tệ', 'Không tốt', 'Bình thường', 'Tốt', 'Xuất sắc'][reviewRating]}
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label>Nhận xét</Label>
+              <Textarea
+                placeholder="Chia sẻ trải nghiệm của bạn..."
+                value={reviewComment}
+                onChange={e => setReviewComment(e.target.value)}
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowReviewDialog(false)}>Hủy</Button>
+            <Button onClick={handleSubmitReview}>Gửi đánh giá</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
