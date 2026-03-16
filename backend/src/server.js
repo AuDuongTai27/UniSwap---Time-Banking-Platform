@@ -264,16 +264,19 @@ app.get('/api/bookings/my-requests', verifyToken, async (req, res) => {
 
 //API 14 Bookings của current user (với role provider)
 app.get('/api/bookings/my-offers', verifyToken, async (req, res) => {
-    const [rows] = await pool.query(`
-    SELECT b.*, s.title as service_title, s.image as service_image, s.category as service_category,
-      u.name as other_user_name, u.avatar as other_user_avatar
+  const [rows] = await pool.query(`
+    SELECT b.*, 
+      s.title as service_title, s.image as service_image, s.category as service_category,
+      u.name as other_user_name, u.avatar as other_user_avatar,
+      IF(r.id IS NOT NULL, 1, 0) as has_reviewed
     FROM bookings b
     JOIN services s ON b.service_id = s.id
     JOIN users u ON b.requester_id = u.id
+    LEFT JOIN reviews r ON r.booking_id = b.id AND r.reviewer_id = ?
     WHERE b.provider_id = ?
     ORDER BY b.created_at DESC
-  `, [req.user.id]);
-    res.json(rows);
+  `, [req.user.id, req.user.id]);
+  res.json(rows);
 });
 
 //API 15 Tạo booking mới
@@ -311,10 +314,10 @@ app.patch('/api/bookings/:id/:action', verifyToken, async (req, res) => {
 
     // ESCROW 2: Khi complete → CỘNG credits cho provider
     if (status === 'completed' && oldStatus === 'confirmed') {
-      await pool.query(
-        'UPDATE users SET credits_earned = credits_earned + ? WHERE id = ?',
-        [booking.credits_amount, booking.provider_id]
-      );
+      // await pool.query(
+      //   'UPDATE users SET credits_earned = credits_earned + ? WHERE id = ?',
+      //   [booking.credits_amount, booking.provider_id]
+      // );
     }
 
     // ESCROW 3: Khi cancel sau confirmed → HOÀN credits cho requester
@@ -455,7 +458,6 @@ app.patch('/api/me/avatar', verifyToken, async (req, res) => {
 app.post('/api/reviews', verifyToken, async (req, res) => {
   const { booking_id, reviewed_user_id, rating, comment } = req.body;
   try {
-    // Kiểm tra đã review chưa
     const [existing] = await pool.query(
       'SELECT id FROM reviews WHERE booking_id = ? AND reviewer_id = ?',
       [booking_id, req.user.id]
@@ -467,18 +469,57 @@ app.post('/api/reviews', verifyToken, async (req, res) => {
       [booking_id, req.user.id, reviewed_user_id, rating, comment]
     );
 
-    // Cập nhật rating trung bình cho user được đánh giá
     const [reviews] = await pool.query(
       'SELECT AVG(rating) as avg_rating, COUNT(*) as total FROM reviews WHERE reviewed_user_id = ?',
       [reviewed_user_id]
     );
     await pool.query(
       'UPDATE users SET rating = ?, total_reviews = ? WHERE id = ?',
-      [reviews[0].avg_rating.toFixed(2), reviews[0].total, reviewed_user_id]
+      [Number(reviews[0].avg_rating).toFixed(2), reviews[0].total, reviewed_user_id]
     );
 
-    res.status(201).json({ success: true });
+    // ===== DEBUG =====
+    const [booking] = await pool.query('SELECT * FROM bookings WHERE id = ?', [booking_id]);
+    const b = booking[0];
+    console.log('📦 Booking:', b);
+
+    const [allReviews] = await pool.query(
+      'SELECT reviewer_id FROM reviews WHERE booking_id = ?',
+      [booking_id]
+    );
+    const reviewerIds = allReviews.map(r => Number(r.reviewer_id));
+    console.log('📝 Reviewer IDs đã review:', reviewerIds);
+    console.log('👤 requester_id:', b.requester_id, typeof b.requester_id);
+    console.log('👤 provider_id:', b.provider_id, typeof b.provider_id);
+    console.log('✅ bothReviewed:', 
+      reviewerIds.includes(Number(b.requester_id)), 
+      reviewerIds.includes(Number(b.provider_id))
+    );
+    // ===== END DEBUG =====
+
+    const bothReviewed = 
+      reviewerIds.includes(Number(b.requester_id)) && 
+      reviewerIds.includes(Number(b.provider_id));
+
+    if (bothReviewed) {
+      console.log('💰 Đang cộng credits cho provider:', b.provider_id, '+', b.credits_amount);
+      await pool.query(
+        'UPDATE users SET credits_earned = credits_earned + ? WHERE id = ?',
+        [b.credits_amount, b.provider_id]
+      );
+      await pool.query(
+        'UPDATE bookings SET credits_settled = 1 WHERE id = ?',
+        [booking_id]
+      );
+      console.log('✅ Credits đã cộng xong!');
+    }
+
+    res.status(201).json({ success: true, bothReviewed, message: bothReviewed 
+      ? 'Credits đã cập nhật!' 
+      : 'Đang chờ đối phương đánh giá...' 
+    });
   } catch (error) {
+    console.error('❌ Lỗi:', error);
     res.status(500).json({ error: error.message });
   }
 });

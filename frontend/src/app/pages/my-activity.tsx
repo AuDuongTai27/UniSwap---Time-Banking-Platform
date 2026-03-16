@@ -41,13 +41,23 @@ export function MyActivity() {
     fetchData();
 
     // ✅ Sau khi complete → tự mở dialog đánh giá cho requester
+    // Trong handleAction (provider complete xong tự mở review)
     if (action === 'complete' && booking) {
-      setTimeout(() => openReviewDialog(booking), 500);
+      setTimeout(() => openReviewDialog(booking, true), 500); // ← thêm true
+    }
+
+    // Nút Leave Review cho requester
+    {
+      !isProvider && booking.status === 'completed' && !booking.has_reviewed && (
+        <Button size="sm" onClick={() => openReviewDialog(booking, false)}> 
+          ⭐ Leave Review
+        </Button>
+      )
     }
   };
 
-  const openReviewDialog = (booking: any) => {
-    setReviewBooking(booking);
+  const openReviewDialog = (booking: any, isProvider: boolean) => {
+    setReviewBooking({ ...booking, isProvider });
     setReviewRating(5);
     setReviewComment('');
     setShowReviewDialog(true);
@@ -56,18 +66,27 @@ export function MyActivity() {
   const handleSubmitReview = async () => {
     if (!reviewBooking) return;
     try {
-      await apiFetch('/api/reviews', {
+      const res = await apiFetch('/api/reviews', {
         method: 'POST',
         body: JSON.stringify({
           booking_id: reviewBooking.id,
-          reviewed_user_id: reviewBooking.provider_id, // ✅ requester đánh giá provider
+          reviewed_user_id: reviewBooking.isProvider
+            ? reviewBooking.requester_id   // provider đánh giá requester
+            : reviewBooking.provider_id,   // requester đánh giá provider
           rating: reviewRating,
           comment: reviewComment,
         }),
       });
-      toast.success('Đánh giá đã được gửi!');
+
       setShowReviewDialog(false);
       fetchData();
+
+      // ✅ Dùng response từ backend
+      if (res.bothReviewed) {
+        toast.success('Cả 2 đã đánh giá! Credits đã được cập nhật 🎉');
+      } else {
+        toast.info('Đã gửi đánh giá! Đang chờ đối phương đánh giá để hoàn tất credits ⏳');
+      }
     } catch {
       toast.error('Gửi đánh giá thất bại');
     }
@@ -163,11 +182,11 @@ export function MyActivity() {
               )}
               {/* ✅ Nút Leave Review cho requester sau khi complete */}
               {!isProvider && booking.status === 'completed' && !booking.has_reviewed && (
-                <Button size="sm" onClick={() => openReviewDialog(booking)}>
+                <Button size="sm" onClick={() => openReviewDialog(booking, false)}> 
                   ⭐ Leave Review
                 </Button>
               )}
-              {!isProvider && booking.status === 'completed' && booking.has_reviewed && (
+              {isProvider && booking.status === 'completed' && booking.has_reviewed && (
                 <span className="text-sm text-gray-500 italic">✅ Đã đánh giá</span>
               )}
             </div>
