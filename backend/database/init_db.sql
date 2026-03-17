@@ -14,13 +14,15 @@ CREATE TABLE users (
     avatar TEXT,
     rating DECIMAL(3,2) DEFAULT 0.00,
     total_reviews INT DEFAULT 0,
-    credits_earned DECIMAL(10,2) DEFAULT 0.00,
+    credits_earned DECIMAL(10,2) DEFAULT 5.00,
     credits_spent DECIMAL(10,2) DEFAULT 0.00,
     skills_offered JSON,
     skills_needed JSON,
     bio TEXT,
     is_verified BOOLEAN DEFAULT FALSE,
-    password_hash VARCHAR(255) NULL,
+    -- Chuỗi dưới đây là mã bcrypt của mật khẩu '123456'. 
+    -- Ai đăng nhập bằng Google thì không cần pass, ai thích gõ tay thì gõ 123456 là vào.
+    password_hash VARCHAR(255) DEFAULT '$2b$10$vI8aWBnW3fID.ZQ4/zo1G.q1lRps.9cGLcZEiGDMVr5yUP1KUOYTa',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -49,6 +51,7 @@ CREATE TABLE bookings (
     scheduled_date DATETIME NOT NULL,
     message TEXT,
     credits_amount DECIMAL(10,2) NOT NULL,
+    credits_settled TINYINT(1) DEFAULT 0, -- Cờ Escrow đã được gom vào đây
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (service_id) REFERENCES services(id) ON DELETE CASCADE,
     FOREIGN KEY (provider_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -69,7 +72,11 @@ CREATE TABLE reviews (
     FOREIGN KEY (reviewed_user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- 1. BƠM DỮ LIỆU BẢNG USERS (bỏ id, để AUTO_INCREMENT tự sinh)
+-- ==========================================
+-- BƠM DỮ LIỆU MẪU (MOCK DATA)
+-- ==========================================
+
+-- 1. BƠM DỮ LIỆU BẢNG USERS 
 INSERT INTO users (email, name, role, age, status, avatar, rating, total_reviews, credits_earned, credits_spent, skills_offered, skills_needed, bio, is_verified) VALUES
 ('tai.au.cit23@eiu.edu.vn', 'Âu Dương Tài', 'admin', 21, 'Tech Lead / Architect', 'https://ui-avatars.com/api/?name=Au+Duong+Tai&background=0D8ABC&color=fff', 5.0, 99, 999.00, 0.00, '["System Architecture", "React", "Node.js", "MySQL"]', '[]', 'System Administrator of UniSwap. I hold the ultimate power.', TRUE),
 ('mai.nguyen@eiu.edu.vn', 'Mai Nguyen', 'client', 19, '1st-year Psychology student', 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&h=400&fit=crop', 4.8, 12, 8.00, 6.00, '["English Conversation", "Note-taking", "Study Scheduling", "Social Media"]', '["Statistics Tutoring", "Excel Help", "Research Methods", "SPSS"]', 'I don''t need charity — I just need a fair way to trade what I can do for what I need.', TRUE),
@@ -77,7 +84,7 @@ INSERT INTO users (email, name, role, age, status, avatar, rating, total_reviews
 ('sarah.chen@eiu.edu.vn', 'Sarah Chen', 'client', 21, '3rd-year Statistics student', 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&h=400&fit=crop', 4.7, 18, 24.00, 20.00, '["Statistics Tutoring", "Excel Advanced", "SPSS Training", "Data Analysis"]', '["Web Design", "Video Editing", "Photography"]', 'Stats doesn''t have to be scary! Let me help you understand it.', TRUE),
 ('alex.kim@eiu.edu.vn', 'Alex Kim', 'client', 20, '2nd-year Business student', 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&h=400&fit=crop', 4.6, 15, 18.00, 15.00, '["PowerPoint Design", "Presentation Skills", "Excel Basics", "Resume Writing"]', '["Math Tutoring", "Programming Basics", "Fitness Coaching"]', 'Making presentations that actually look professional.', TRUE);
 
--- 2. BƠM DỮ LIỆU BẢNG SERVICES (user_id dùng số INT tương ứng)
+-- 2. BƠM DỮ LIỆU BẢNG SERVICES
 INSERT INTO services (user_id, title, description, category, credits_per_hour, duration, total_credits, image) VALUES
 (3, 'Web Development Tutoring - React & HTML/CSS', 'Learn to build modern websites with React. Perfect for beginners! I''ll help you understand the fundamentals and build your first project.', 'Tech & Programming', 2.00, 1.50, 3.00, 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=800&h=400&fit=crop'),
 (4, 'Statistics & Research Methods Tutoring', 'Struggling with stats? I can help you understand concepts, work through problems, and prepare for exams. SPSS and Excel included.', 'Academic Tutoring', 2.00, 1.00, 2.00, 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&h=400&fit=crop'),
@@ -88,11 +95,11 @@ INSERT INTO services (user_id, title, description, category, credits_per_hour, d
 (5, 'Resume & Cover Letter Writing', 'Get your resume noticed by employers. I''ll help you craft a professional CV and compelling cover letter.', 'Career & Professional', 1.50, 1.00, 1.50, 'https://images.unsplash.com/photo-1586281380349-632531db7ed4?w=800&h=400&fit=crop'),
 (3, 'Graphic Design with Figma & Canva', 'Learn to create stunning graphics for social media, presentations, and projects. Beginner-friendly!', 'Design & Creative', 2.00, 1.00, 2.00, 'https://images.unsplash.com/photo-1561070791-2526d30994b5?w=800&h=400&fit=crop');
 
--- 3. BƠM DỮ LIỆU BẢNG BOOKINGS
-INSERT INTO bookings (service_id, provider_id, requester_id, status, scheduled_date, message, credits_amount, created_at) VALUES
-(2, 4, 2, 'confirmed', '2026-02-05 14:00:00', 'Hi! I really need help with understanding hypothesis testing and p-values for my upcoming exam.', 2.00, '2026-01-28 10:00:00'),
-(5, 2, 3, 'completed', '2026-01-29 16:00:00', 'I want to improve my English speaking for an upcoming presentation.', 1.00, '2026-01-27 09:00:00'),
-(5, 2, 4, 'completed', '2026-01-26 15:00:00', 'Need help preparing for an English interview.', 1.00, '2026-01-24 11:00:00');
+-- 3. BƠM DỮ LIỆU BẢNG BOOKINGS (Thêm luôn trạng thái credits_settled mẫu)
+INSERT INTO bookings (service_id, provider_id, requester_id, status, scheduled_date, message, credits_amount, credits_settled, created_at) VALUES
+(2, 4, 2, 'confirmed', '2026-02-05 14:00:00', 'Hi! I really need help with understanding hypothesis testing and p-values for my upcoming exam.', 2.00, 0, '2026-01-28 10:00:00'),
+(5, 2, 3, 'completed', '2026-01-29 16:00:00', 'I want to improve my English speaking for an upcoming presentation.', 1.00, 1, '2026-01-27 09:00:00'),
+(5, 2, 4, 'completed', '2026-01-26 15:00:00', 'Need help preparing for an English interview.', 1.00, 1, '2026-01-24 11:00:00');
 
 -- 4. BƠM DỮ LIỆU BẢNG REVIEWS
 INSERT INTO reviews (booking_id, reviewer_id, reviewed_user_id, rating, comment, created_at) VALUES
