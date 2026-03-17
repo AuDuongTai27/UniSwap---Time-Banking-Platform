@@ -600,4 +600,22 @@ app.patch('/api/reports/:id', verifyToken, async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+// API 28: Lấy tất cả users (CHỈ ADMIN)
+app.get('/api/admin/users', verifyToken, async (req, res) => {
+  if (req.user.role?.toLowerCase() !== 'admin') {
+    return res.status(403).json({ error: 'Không có quyền truy cập' });
+  }
+  try {
+    const [rows] = await pool.query(`
+      SELECT id, email, name, role, age, status, avatar, rating, 
+             total_reviews, credits_earned, credits_spent, 
+             is_verified, created_at
+      FROM users
+      ORDER BY created_at DESC
+    `);
+    res.json(rows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 app.listen(5000, () => console.log('Backend đang chạy tại http://localhost:5000'));

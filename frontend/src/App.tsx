@@ -14,6 +14,7 @@ import { PostService } from './app/pages/post-service';
 import { HowItWorks } from './app/pages/how-it-works';
 import { NotFound } from './app/pages/not-found';
 import { Reports } from './app/pages/reports';
+import { AdminUsers } from './app/pages/admin-users';
 const AuthPage = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
@@ -203,6 +204,7 @@ export default function App() {
             <Route path="how-it-works" element={<HowItWorks />} />
             <Route path="*" element={<NotFound />} />
             <Route path="reports" element={<Reports />} />
+            <Route path="admin/users" element={<AdminUsers />} />
           </Route>
         </Routes>
       </Router>

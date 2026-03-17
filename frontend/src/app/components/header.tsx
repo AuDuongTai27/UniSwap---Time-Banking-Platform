@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router'; // ✅ thêm useNavigate
-import { Clock, User, Plus, LogOut, Flag } from 'lucide-react';
+import { Clock, User, Plus, LogOut, Flag, Users } from 'lucide-react';
 import { Button } from '@/app/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/app/components/ui/avatar';
 import { apiFetch } from '@/app/data/api';
@@ -59,6 +59,16 @@ export function Header() {
                 <Flag className="h-4 w-4" />
                 Reports
               </Link>
+            )}
+            {currentUser?.role?.toLowerCase() === 'admin' && (
+              <>
+                <Link to="/reports" className={`text-sm transition-colors hover:text-red-600 flex items-center gap-1 ${isActive('/reports') ? 'text-red-600 font-medium' : 'text-gray-600'}`}>
+                  <Flag className="h-4 w-4" /> Reports
+                </Link>
+                <Link to="/admin/users" className={`text-sm transition-colors hover:text-blue-600 flex items-center gap-1 ${isActive('/admin/users') ? 'text-blue-600 font-medium' : 'text-gray-600'}`}>
+                  <Users className="h-4 w-4" /> Users
+                </Link>
+              </>
             )}
           </nav>
 
