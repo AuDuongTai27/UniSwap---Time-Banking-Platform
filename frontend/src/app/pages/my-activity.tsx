@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Calendar, Clock, CheckCircle, XCircle, AlertCircle, Star } from 'lucide-react'; // ✅ thêm Star
+import { Calendar, Clock, CheckCircle, XCircle, AlertCircle, Star, Flag } from 'lucide-react';
 import { Card, CardContent } from '@/app/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/ui/tabs';
 import { Avatar, AvatarImage, AvatarFallback } from '@/app/components/ui/avatar';
 import { Badge } from '@/app/components/ui/badge';
 import { Button } from '@/app/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/app/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/app/components/ui/dialog';
 import { Textarea } from '@/app/components/ui/textarea';
 import { Label } from '@/app/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
 import { apiFetch } from '@/app/data/api';
 import { toast } from 'sonner';
 
@@ -16,12 +17,18 @@ export function MyActivity() {
   const [myRequests, setMyRequests] = useState<any[]>([]);
   const [myOffers, setMyOffers] = useState<any[]>([]);
 
-  // ✅ Review state
+  // Review state
   const [showReviewDialog, setShowReviewDialog] = useState(false);
   const [reviewBooking, setReviewBooking] = useState<any>(null);
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState('');
   const [hoveredStar, setHoveredStar] = useState(0);
+
+  // ✅ Report state
+  const [showReportDialog, setShowReportDialog] = useState(false);
+  const [reportBooking, setReportBooking] = useState<any>(null);
+  const [reportReason, setReportReason] = useState('');
+  const [reportDetail, setReportDetail] = useState('');
 
   const fetchData = () => {
     apiFetch('/api/bookings/my-requests').then(data => setMyRequests(Array.isArray(data) ? data : []));
@@ -35,24 +42,12 @@ export function MyActivity() {
     const messages: Record<string, string> = {
       confirm: 'Đã xác nhận booking!',
       cancel: 'Đã hủy booking!',
-      complete: 'Đã hoàn thành! Credits đã được chuyển.',
+      complete: 'Đã hoàn thành!',
     };
     toast.success(messages[action] || 'Thành công!');
     fetchData();
-
-    // ✅ Sau khi complete → tự mở dialog đánh giá cho requester
-    // Trong handleAction (provider complete xong tự mở review)
     if (action === 'complete' && booking) {
-      setTimeout(() => openReviewDialog(booking, true), 500); // ← thêm true
-    }
-
-    // Nút Leave Review cho requester
-    {
-      !isProvider && booking.status === 'completed' && !booking.has_reviewed && (
-        <Button size="sm" onClick={() => openReviewDialog(booking, false)}> 
-          ⭐ Leave Review
-        </Button>
-      )
+      setTimeout(() => openReviewDialog(booking, true), 500);
     }
   };
 
@@ -63,6 +58,14 @@ export function MyActivity() {
     setShowReviewDialog(true);
   };
 
+  // ✅ Mở report dialog
+  const openReportDialog = (booking: any, isProvider: boolean) => {
+    setReportBooking({ ...booking, isProvider });
+    setReportReason('');
+    setReportDetail('');
+    setShowReportDialog(true);
+  };
+
   const handleSubmitReview = async () => {
     if (!reviewBooking) return;
     try {
@@ -71,17 +74,14 @@ export function MyActivity() {
         body: JSON.stringify({
           booking_id: reviewBooking.id,
           reviewed_user_id: reviewBooking.isProvider
-            ? reviewBooking.requester_id   // provider đánh giá requester
-            : reviewBooking.provider_id,   // requester đánh giá provider
+            ? reviewBooking.requester_id
+            : reviewBooking.provider_id,
           rating: reviewRating,
           comment: reviewComment,
         }),
       });
-
       setShowReviewDialog(false);
       fetchData();
-
-      // ✅ Dùng response từ backend
       if (res.bothReviewed) {
         toast.success('Cả 2 đã đánh giá! Credits đã được cập nhật 🎉');
       } else {
@@ -89,6 +89,29 @@ export function MyActivity() {
       }
     } catch {
       toast.error('Gửi đánh giá thất bại');
+    }
+  };
+
+  // ✅ Submit report
+  const handleSubmitReport = async () => {
+    if (!reportReason) { toast.error('Vui lòng chọn lý do báo cáo'); return; }
+    if (!reportDetail.trim()) { toast.error('Vui lòng mô tả chi tiết'); return; }
+    try {
+      await apiFetch('/api/reports', {
+        method: 'POST',
+        body: JSON.stringify({
+          booking_id: reportBooking.id,
+          reported_user_id: reportBooking.isProvider
+            ? reportBooking.requester_id
+            : reportBooking.provider_id,
+          reason: reportReason,
+          detail: reportDetail,
+        }),
+      });
+      toast.success('Đã gửi báo cáo! Admin sẽ xem xét sớm.');
+      setShowReportDialog(false);
+    } catch {
+      toast.error('Gửi báo cáo thất bại');
     }
   };
 
@@ -157,7 +180,7 @@ export function MyActivity() {
                 <p className="text-sm text-gray-700"><strong>Message:</strong> {booking.message}</p>
               </div>
             )}
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {isProvider && booking.status === 'pending' && (
                 <>
                   <Button size="sm" onClick={() => handleAction(booking.id, 'confirm')}>Accept</Button>
@@ -167,7 +190,7 @@ export function MyActivity() {
               {isProvider && booking.status === 'confirmed' && (
                 <>
                   <Button size="sm" className="bg-green-600 hover:bg-green-700"
-                    onClick={() => handleAction(booking.id, 'complete', booking)}> {/* ✅ truyền booking */}
+                    onClick={() => handleAction(booking.id, 'complete', booking)}>
                     ✅ Mark as Complete
                   </Button>
                   <Button size="sm" variant="outline" onClick={() => handleAction(booking.id, 'cancel')}>
@@ -180,14 +203,32 @@ export function MyActivity() {
                   Cancel Booking
                 </Button>
               )}
-              {/* ✅ Nút Leave Review cho requester sau khi complete */}
+
+              {/* Leave Review */}
               {!isProvider && booking.status === 'completed' && !booking.has_reviewed && (
-                <Button size="sm" onClick={() => openReviewDialog(booking, false)}> 
+                <Button size="sm" onClick={() => openReviewDialog(booking, false)}>
                   ⭐ Leave Review
                 </Button>
               )}
-              {isProvider && booking.status === 'completed' && booking.has_reviewed && (
+              {isProvider && booking.status === 'completed' && !booking.has_reviewed && (
+                <Button size="sm" onClick={() => openReviewDialog(booking, true)}>
+                  ⭐ Leave Review
+                </Button>
+              )}
+              {booking.status === 'completed' && booking.has_reviewed && (
                 <span className="text-sm text-gray-500 italic">✅ Đã đánh giá</span>
+              )}
+
+              {/* ✅ Nút Report — chỉ hiện sau khi đã review */}
+              {booking.status === 'completed' && booking.has_reviewed && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-red-500 hover:text-red-700 hover:bg-red-50 gap-1"
+                  onClick={() => openReportDialog(booking, isProvider)}
+                >
+                  <Flag className="h-4 w-4" /> Report
+                </Button>
               )}
             </div>
           </div>
@@ -237,9 +278,9 @@ export function MyActivity() {
         </Tabs>
       </div>
 
-      {/* ✅ REVIEW DIALOG */}
+      {/* REVIEW DIALOG */}
       <Dialog open={showReviewDialog} onOpenChange={setShowReviewDialog}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md" aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>Đánh giá dịch vụ</DialogTitle>
           </DialogHeader>
@@ -248,19 +289,14 @@ export function MyActivity() {
               <p className="text-gray-600 mb-3">
                 Đánh giá <strong>{reviewBooking?.other_user_name}</strong>
               </p>
-              {/* Star Rating */}
               <div className="flex justify-center gap-1 mb-2">
                 {[1, 2, 3, 4, 5].map(star => (
-                  <button
-                    key={star}
+                  <button key={star}
                     onMouseEnter={() => setHoveredStar(star)}
                     onMouseLeave={() => setHoveredStar(0)}
-                    onClick={() => setReviewRating(star)}
-                  >
+                    onClick={() => setReviewRating(star)}>
                     <Star className={`h-8 w-8 transition-colors ${star <= (hoveredStar || reviewRating)
-                      ? 'fill-yellow-400 text-yellow-400'
-                      : 'text-gray-300'
-                      }`} />
+                      ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`} />
                   </button>
                 ))}
               </div>
@@ -270,17 +306,66 @@ export function MyActivity() {
             </div>
             <div className="space-y-2">
               <Label>Nhận xét</Label>
-              <Textarea
-                placeholder="Chia sẻ trải nghiệm của bạn..."
-                value={reviewComment}
-                onChange={e => setReviewComment(e.target.value)}
-                rows={4}
-              />
+              <Textarea placeholder="Chia sẻ trải nghiệm của bạn..."
+                value={reviewComment} onChange={e => setReviewComment(e.target.value)} rows={4} />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowReviewDialog(false)}>Hủy</Button>
             <Button onClick={handleSubmitReview}>Gửi đánh giá</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ✅ REPORT DIALOG */}
+      <Dialog open={showReportDialog} onOpenChange={setShowReportDialog}>
+        <DialogContent className="max-w-md" aria-describedby={undefined}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <Flag className="h-5 w-5" /> Báo cáo người dùng
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-gray-600">
+              Báo cáo <strong>{reportBooking?.other_user_name}</strong> về booking{' '}
+              <strong>{reportBooking?.service_title}</strong>
+            </p>
+            <div className="space-y-2">
+              <Label>Lý do báo cáo *</Label>
+              <Select value={reportReason} onValueChange={setReportReason}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Chọn lý do..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="no_show">Không xuất hiện đúng giờ</SelectItem>
+                  <SelectItem value="poor_quality">Chất lượng dịch vụ kém</SelectItem>
+                  <SelectItem value="inappropriate">Hành vi không phù hợp</SelectItem>
+                  <SelectItem value="fraud">Gian lận / lừa đảo</SelectItem>
+                  <SelectItem value="other">Lý do khác</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Mô tả chi tiết *</Label>
+              <Textarea
+                placeholder="Mô tả cụ thể vấn đề bạn gặp phải..."
+                value={reportDetail}
+                onChange={e => setReportDetail(e.target.value)}
+                rows={4}
+              />
+            </div>
+            <p className="text-xs text-gray-400">
+              * Báo cáo sai sự thật có thể dẫn đến khóa tài khoản.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowReportDialog(false)}>Hủy</Button>
+            <Button
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={handleSubmitReport}
+            >
+              Gửi báo cáo
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

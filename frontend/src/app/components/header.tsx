@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router'; // ✅ thêm useNavigate
-import { Clock, User, Plus, LogOut } from 'lucide-react'; // ✅ thêm LogOut
+import { Clock, User, Plus, LogOut, Flag } from 'lucide-react';
 import { Button } from '@/app/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/app/components/ui/avatar';
 import { apiFetch } from '@/app/data/api';
@@ -10,9 +10,10 @@ export function Header() {
   const location = useLocation();
   const navigate = useNavigate(); // ✅ thêm
   const [currentUser, setCurrentUser] = useState<UserType | null>(null);
+  const isAdmin = currentUser?.role === 'admin';
 
   useEffect(() => {
-    apiFetch('/api/me').then(data => setCurrentUser(data)).catch(() => {});
+    apiFetch('/api/me').then(data => setCurrentUser(data)).catch(() => { });
   }, []);
 
   const availableCredits = currentUser
@@ -50,6 +51,15 @@ export function Header() {
             <Link to="/how-it-works" className={`text-sm transition-colors hover:text-blue-600 ${isActive('/how-it-works') ? 'text-blue-600 font-medium' : 'text-gray-600'}`}>
               How It Works
             </Link>
+            {isAdmin && (
+              <Link
+                to="/reports"
+                className={`text-sm transition-colors hover:text-red-600 flex items-center gap-1 ${isActive('/reports') ? 'text-red-600 font-medium' : 'text-gray-600'}`}
+              >
+                <Flag className="h-4 w-4" />
+                Reports
+              </Link>
+            )}
           </nav>
 
           <div className="flex items-center gap-4">

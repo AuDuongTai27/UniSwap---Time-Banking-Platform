@@ -105,3 +105,17 @@ INSERT INTO bookings (service_id, provider_id, requester_id, status, scheduled_d
 INSERT INTO reviews (booking_id, reviewer_id, reviewed_user_id, rating, comment, created_at) VALUES
 (2, 3, 2, 5, 'Mai was super patient and helpful! Really improved my confidence in speaking English. Highly recommend!', '2026-01-29 18:00:00'),
 (3, 4, 2, 5, 'Very friendly and encouraging. Great conversation practice!', '2026-01-26 17:00:00');
+
+CREATE TABLE reports (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  booking_id INT NOT NULL,
+  reporter_id INT NOT NULL,
+  reported_user_id INT NOT NULL,
+  reason VARCHAR(50) NOT NULL,
+  detail TEXT NOT NULL,
+  status ENUM('pending', 'reviewed', 'resolved') DEFAULT 'pending',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (booking_id) REFERENCES bookings(id),
+  FOREIGN KEY (reporter_id) REFERENCES users(id),
+  FOREIGN KEY (reported_user_id) REFERENCES users(id)
+);

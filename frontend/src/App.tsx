@@ -13,7 +13,7 @@ import { MyActivity } from './app/pages/my-activity';
 import { PostService } from './app/pages/post-service';
 import { HowItWorks } from './app/pages/how-it-works';
 import { NotFound } from './app/pages/not-found';
-
+import { Reports } from './app/pages/reports';
 const AuthPage = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
@@ -202,6 +202,7 @@ export default function App() {
             <Route path="post-service" element={<PostService />} />
             <Route path="how-it-works" element={<HowItWorks />} />
             <Route path="*" element={<NotFound />} />
+            <Route path="reports" element={<Reports />} />
           </Route>
         </Routes>
       </Router>

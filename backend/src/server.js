@@ -36,7 +36,7 @@ app.post('/api/register', async (req, res) => {
         return res.status(400).json({ error: 'Chỉ chấp nhận email sinh viên @eiu.edu.vn' });
     }
 
-    const role = (email === 'tai.au.cit23@eiu.edu.vn') ? 'ADMIN' : 'CLIENT';
+    const role = (email === 'tai.au.cit23@eiu.edu.vn') ? 'admin' : 'client';
 
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
@@ -110,7 +110,7 @@ app.post('/api/google-auth', async (req, res) => {
         }
 
         // 3. RULE 2: Gán quyền
-        const role = (email === 'tai.au.cit23@eiu.edu.vn') ? 'ADMIN' : 'CLIENT';
+        const role = (email === 'tai.au.cit23@eiu.edu.vn') ? 'admin' : 'client';
 
         // 4. Kiểm tra xem user này đã có trong Database chưa?
         const [rows] = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
@@ -520,6 +520,83 @@ app.post('/api/reviews', verifyToken, async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Lỗi:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+// API 25: Gửi report
+app.post('/api/reports', verifyToken, async (req, res) => {
+  const { booking_id, reported_user_id, reason, detail } = req.body;
+  try {
+    // Không cho report chính mình
+    if (reported_user_id === req.user.id) {
+      return res.status(400).json({ error: 'Không thể tự báo cáo chính mình' });
+    }
+
+    // Kiểm tra đã report booking này chưa
+    const [existing] = await pool.query(
+      'SELECT id FROM reports WHERE booking_id = ? AND reporter_id = ?',
+      [booking_id, req.user.id]
+    );
+    if (existing.length > 0) {
+      return res.status(400).json({ error: 'Bạn đã báo cáo booking này rồi' });
+    }
+
+    await pool.query(
+      'INSERT INTO reports (booking_id, reporter_id, reported_user_id, reason, detail) VALUES (?,?,?,?,?)',
+      [booking_id, req.user.id, reported_user_id, reason, detail]
+    );
+    res.status(201).json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// API 26: Lấy tất cả reports (CHỈ ADMIN)
+app.get('/api/reports', verifyToken, async (req, res) => {
+  // Kiểm tra quyền admin
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Không có quyền truy cập' });
+  }
+  try {
+    const [rows] = await pool.query(`
+      SELECT 
+        r.*,
+        reporter.name as reporter_name,
+        reporter.email as reporter_email,
+        reporter.avatar as reporter_avatar,
+        reported.name as reported_name,
+        reported.email as reported_email,
+        reported.avatar as reported_avatar,
+        b.credits_amount as booking_credits,
+        s.title as service_title,
+        s.category as service_category
+      FROM reports r
+      JOIN users reporter ON r.reporter_id = reporter.id
+      JOIN users reported ON r.reported_user_id = reported.id
+      JOIN bookings b ON r.booking_id = b.id
+      JOIN services s ON b.service_id = s.id
+      ORDER BY r.created_at DESC
+    `);
+    res.json(rows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// API 27: Cập nhật status report (CHỈ ADMIN)
+app.patch('/api/reports/:id', verifyToken, async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Không có quyền truy cập' });
+  }
+  const { status } = req.body;
+  const validStatus = ['pending', 'reviewed', 'resolved'];
+  if (!validStatus.includes(status)) {
+    return res.status(400).json({ error: 'Status không hợp lệ' });
+  }
+  try {
+    await pool.query('UPDATE reports SET status = ? WHERE id = ?', [status, req.params.id]);
+    res.json({ success: true });
+  } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
